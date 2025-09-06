@@ -1,0 +1,10 @@
+python-dotenv==1.0.0
+python-telegram-bot==20.7
+twilio==8.10.0
+imapclient==2.3.1
+requests==2.31.0
+spacy==3.7.2
+pytest==7.4.3
+pytest-asyncio==0.21.1
+aiofiles==23.2.1
+pydantic==2.5.0
