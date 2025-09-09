@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Micheal Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
+        .header { background: #2c3e50; color: white; padding: 1rem; text-align: center; }
+        .container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+        .channels { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .channel { background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .channel.active { border-left: 4px solid #27ae60; }
+        .channel.inactive { border-left: 4px solid #e74c3c; }
+        .channel-name { font-size: 1.2rem; font-weight: bold; margin-bottom: 0.5rem; }
+        .channel-status { font-size: 0.9rem; color: #666; }
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.5rem; }
+        .status-dot.online { background: #27ae60; }
+        .status-dot.offline { background: #e74c3c; }
+        .messages { background: white; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .messages h2 { margin-bottom: 1rem; color: #2c3e50; }
+        #messageList { max-height: 600px; overflow-y: auto; }
+        .message { padding: 1rem; border-bottom: 1px solid #eee; transition: background-color 0.2s; }
+        .message:hover { background-color: #f8f9fa; }
+        .message:last-child { border-bottom: none; }
+        .message-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .message-channel { font-weight: bold; color: #3498db; }
+        .message-sender { font-weight: bold; color: #2c3e50; margin-left: 0.5rem; }
+        .message-time { color: #999; font-size: 0.85rem; }
+        .message-text { color: #555; line-height: 1.4; background: #f8f9fa; padding: 0.8rem; border-radius: 4px; margin-top: 0.5rem; }
+        .message-text:hover { background: #eef1f5; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 Agent Micheal Dashboard</h1>
+        <p>Multi-Channel Message Monitor</p>
+    </div>
+
+    <div class="container">
+        <div class="channels" id="channels">
+            <div class="channel active">
+                <div class="channel-name">📧 Email</div>
+                <div class="channel-status">
+                    <span class="status-dot online"></span>
+                    Connected - Checking every 30s
+                </div>
+            </div>
+            <div class="channel inactive">
+                <div class="channel-name">📱 Telegram</div>
+                <div class="channel-status">
+                    <span class="status-dot offline"></span>
+                    Not configured
+                </div>
+            </div>
+            <div class="channel inactive">
+                <div class="channel-name">💬 WhatsApp</div>
+                <div class="channel-status">
+                    <span class="status-dot offline"></span>
+                    Not configured
+                </div>
+            </div>
+            <div class="channel inactive">
+                <div class="channel-name">💼 LinkedIn</div>
+                <div class="channel-status">
+                    <span class="status-dot offline"></span>
+                    Stub implementation
+                </div>
+            </div>
+            <div class="channel inactive">
+                <div class="channel-name">📸 Instagram</div>
+                <div class="channel-status">
+                    <span class="status-dot offline"></span>
+                    Stub implementation
+                </div>
+            </div>
+        </div>
+
+        <div class="messages">
+            <h2>Recent Messages</h2>
+            <div id="messageList">
+                <div class="message">
+                    <div class="message-header">
+                        <div>
+                            <span class="message-channel">📧 Email</span>
+                            <span class="message-sender">from: iCloud</span>
+                        </div>
+                        <div class="message-time">2 min ago</div>
+                    </div>
+                    <div class="message-text">Welcome message from iCloud - Get the most out of iCloud...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update channel status
+        function updateChannelStatus() {
+            fetch('http://127.0.0.1:8080/api/status')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    updateChannelDisplay(data.channels);
+                })
+                .catch(error => {
+                    console.error('Error fetching status:', error);
+                    // Show connection error in UI
+                    document.querySelectorAll('.channel').forEach(channel => {
+                        const statusText = channel.querySelector('.channel-status');
+                        const dot = channel.querySelector('.status-dot');
+                        channel.className = 'channel inactive';
+                        dot.className = 'status-dot offline';
+                        statusText.innerHTML = '<span class="status-dot offline"></span>Connection error';
+                    });
+                });
+        }
+
+        function loadMessages() {
+            fetch('http://127.0.0.1:8080/api/messages')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(messages => {
+                    displayMessages(messages);
+                })
+                .catch(error => {
+                    console.error('Error fetching messages:', error);
+                    const messageList = document.getElementById('messageList');
+                    messageList.innerHTML = '<div style="text-align: center; color: #e74c3c; padding: 2rem;">Unable to connect to agent - Please make sure the agent is running</div>';
+                });
+        }
+
+        function getChannelIcon(channel) {
+            const icons = {
+                'email': '📧',
+                'telegram': '📱',
+                'whatsapp': '💬',
+                'linkedin': '💼',
+                'instagram': '📸'
+            };
+            return icons[channel] || '💬';
+        }
+
+        function updateChannelDisplay(channels) {
+            const channelElements = document.querySelectorAll('.channel');
+            const channelNames = ['email', 'telegram', 'whatsapp', 'linkedin', 'instagram'];
+            
+            channelElements.forEach((element, index) => {
+                const channelName = channelNames[index];
+                const status = channels[channelName]?.status || 'offline';
+                const dot = element.querySelector('.status-dot');
+                const statusText = element.querySelector('.channel-status');
+                
+                element.className = `channel ${status === 'online' ? 'active' : 'inactive'}`;
+                dot.className = `status-dot ${status === 'online' ? 'online' : 'offline'}`;
+                
+                const statusMessages = {
+                    'online': 'Connected and active',
+                    'offline': 'Not configured',
+                    'stub': 'Stub implementation'
+                };
+                statusText.innerHTML = `<span class="status-dot ${status === 'online' ? 'online' : 'offline'}"></span>${statusMessages[status] || 'Unknown'}`;
+            });
+        }
+        
+        function displayMessages(messages) {
+            const messageList = document.getElementById('messageList');
+            if (!messages || messages.length === 0) {
+                messageList.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No messages yet</div>';
+                return;
+            }
+            
+            messageList.innerHTML = messages.map(msg => `
+                <div class="message">
+                    <div class="message-header">
+                        <div>
+                            <span class="message-channel">${getChannelIcon(msg.channel)} ${msg.channel}</span>
+                            <span class="message-sender">from: ${msg.sender_name || 'Unknown'}</span>
+                        </div>
+                        <div class="message-time">${formatTime(msg.received_at)}</div>
+                    </div>
+                    <div class="message-text">${msg.text && msg.text.length > 200 ? msg.text.substring(0, 200) + '...' : (msg.text || 'No content')}</div>
+                </div>
+            `).join('');
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000 / 60);
+            
+            if (diff < 1) return 'Just now';
+            if (diff < 60) return `${diff} min ago`;
+            if (diff < 1440) return `${Math.floor(diff / 60)} hours ago`;
+            
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        // Update every 5 seconds
+        setInterval(() => {
+            updateChannelStatus();
+            loadMessages();
+        }, 5000);
+
+        // Initial load
+        updateChannelStatus();
+        loadMessages();
+        function getChannelIcon(channel) {
+            const icons = {
+                'email': '📧',
+                'telegram': '📱',
+                'whatsapp': '💬',
+                'linkedin': '💼',
+                'instagram': '📸'
+            };
+            return icons[channel] || '💬';
+        }
+
+        function updateChannelDisplay(channels) {
+            const channelElements = document.querySelectorAll('.channel');
+            const channelNames = ['email', 'telegram', 'whatsapp', 'linkedin', 'instagram'];
+            
+            channelElements.forEach((element, index) => {
+                const channelName = channelNames[index];
+                const status = channels[channelName]?.status || 'offline';
+                const dot = element.querySelector('.status-dot');
+                const statusText = element.querySelector('.channel-status');
+                
+                element.className = `channel ${status === 'online' ? 'active' : 'inactive'}`;
+                dot.className = `status-dot ${status === 'online' ? 'online' : 'offline'}`;
+                
+                const statusMessages = {
+                    'online': 'Connected and active',
+                    'offline': 'Not configured',
+                    'stub': 'Stub implementation'
+                };
+                statusText.innerHTML = `<span class="status-dot ${status === 'online' ? 'online' : 'offline'}"></span>${statusMessages[status] || 'Unknown'}`;
+            });
+        }
+
+        function showFullMessage(text) {
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.7);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            `;
+            
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                padding: 2rem;
+                border-radius: 8px;
+                max-width: 80%;
+                max-height: 80%;
+                overflow-y: auto;
+                position: relative;
+            `;
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '×';
+            closeBtn.style.cssText = `
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                border: none;
+                background: none;
+                font-size: 24px;
+                cursor: pointer;
+                color: #666;
+            `;
+            
+            content.innerHTML = `<div style="padding-right: 20px;">${text}</div>`;
+            content.appendChild(closeBtn);
+            modal.appendChild(content);
+            document.body.appendChild(modal);
+            
+            const close = () => document.body.removeChild(modal);
+            closeBtn.onclick = close;
+            modal.onclick = (e) => {
+                if (e.target === modal) close();
+            };
+        }
+        
+        function displayMessages(messages) {
+            const messageList = document.getElementById('messageList');
+            if (!messages || messages.length === 0) {
+                messageList.innerHTML = '<div style="text-align: center; color: #666; padding: 2rem;">No messages yet</div>';
+                return;
+            }
+            
+            // Sort messages by timestamp, newest first
+            const sortedMessages = [...messages].sort((a, b) => 
+                new Date(b.received_at) - new Date(a.received_at)
+            );
+            
+            messageList.innerHTML = sortedMessages.map(msg => `
+                <div class="message">
+                    <div class="message-header">
+                        <div>
+                            <span class="message-channel">${getChannelIcon(msg.channel)} ${msg.channel}</span>
+                            <span class="message-sender">from: ${msg.sender_name || 'Unknown'}</span>
+                        </div>
+                        <div class="message-time">${formatTime(msg.received_at)}</div>
+                    </div>
+                    <div class="message-text">${msg.text && msg.text.length > 200 ? 
+                        `${msg.text.substring(0, 200)}... <span style="color: #3498db; cursor: pointer; text-decoration: underline;" 
+                         onclick="showFullMessage('${msg.text.replace(/'/g, "\\'")}')">Read more</span>` 
+                        : (msg.text || 'No content')}</div>
+                </div>
+            `).join('');
+        }
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diff = Math.floor((now - date) / 1000 / 60);
+            
+            if (diff < 1) return 'Just now';
+            if (diff < 60) return `${diff} min ago`;
+            if (diff < 1440) return `${Math.floor(diff / 60)} hours ago`;
+            
+            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+
+        // Update every 5 seconds
+        setInterval(() => {
+            updateChannelStatus();
+            loadMessages();
+        }, 5000);
+
+        // Initial load
+        updateChannelStatus();
+        loadMessages();
+    </script>
+</body>
+</html> 
